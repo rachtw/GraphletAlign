@@ -1,0 +1,182 @@
+GraphletAlign - Protein-Protein Network Alignment Program from Dr. Sze's group in Computer Science and Engineering, Texas A&M University 
+
+Citation
+========
+
+  M.-F. Hsieh, S.-H. Sze
+  Finding alignments of conserved graphlets in protein interaction networks.
+  J Comput Biol. 2014 Mar;21(3):234-46.
+
+Prerequisite
+============
+
+  Java 6 or above, GNU G++, Bash, Sed
+
+Recommended System Requirement
+==============================
+
+  4 GB memory for each alignment process. 3-14 GB disk space for each alignment result.
+
+Source Structure
+================
+
+  bin/: C++ executables
+  class/: Java classes
+  data/: Topology files of graphlets of size 2-8
+  GraphletAlign/example/: Examples of input and output data, from single to four species alignment
+  script/: Bash script
+  src/: C++ and Java source files
+  align.sh: The Bash script that executes graphlet alignment
+  cluster.sh: The Bash script that executes clustering on graphlet alignment results
+  compile.sh: The Bash script that compiles the source files
+
+Input Files
+===========
+
+Put the following files in a folder.
+
+1. Net files (.net): 
+
+  A *.net file contains a network of a species. Each line contains a graph edge in the following format. Two proteins should be separated by a tab. There is no requirement on the input order. A sample file looks like:
+
+  Protein_1	Protein_2
+  Protein_3	Protein_4
+  Protein_1	Protein_3
+  ...
+
+2. BLAST 2 file (.blastp): 
+
+  A *.blastp file contains all protein-protein BLAST (blastp) results between every two species. Each line contains a pair of proteins and the expect value from the blastp results. They should be separated by tabs. There is no requirement on the input order of pairs. A sample file looks like:
+
+  Protein_1	Protein_2	Exp_value_E    # BLASTP search of protein 1 finds protein 2 with expect value E
+  Protein_2	Protein_1	Exp_value_E'   # BLASTP search of protein 2 finds protein 1 with expect value E'
+  ...
+
+3. Configuration files
+
+  Two configurations files are used in the program.
+
+  (1) Graphlet alignment configuration (config.align.sh): A sample file looks like:
+
+    #!/bin/bash
+    MULTIPLE_SPECIES=1    # Aligns multiple species or single species; 1: multiple species, 0: single species
+
+    TOP_HITS=35           # Use top 35 Blastp hits of each protein, including hits within the same species
+                          # If using all hits, assign INT_MAX instead of a number
+                          
+    BIDIRECTIONAL_HITS=1  # Uses bi-directional hits or all hits; 1: bi-directional hits, 0: all hits
+
+    GRAPHLET_MAX_SIZE=4   # Max number nodes in a graphlet
+
+    SPECIES[0]=fly        # Input file names of each species network, excluding the file extension .net
+    SPECIES[1]=worm
+    SPECIES[2]=yeast
+
+    #------------------------default values (Usually no need to change)
+    
+    GRAPHLET_MIN_SIZE=3   # Min number nodes in a graphlet
+    
+    BLASTP_EXP=1e-6       # Cut off value for Blastp expect value
+                          # 1e-6 means only expect values less than 1e-6 are considered 
+                          # (i.e. All Xe-7, X=1..9 values are included)
+
+    #------------------------system configuration (Usually no need to change)
+    
+    ALIGN_DIR=alignment   # Folder name for storing alignment    
+    TMP_DIR=tmp           # Folder name for storing intermediate files
+    
+  (2) Clustering configuration (config.cluster.sh): A sample file looks like:
+  
+    #!/bin/bash
+    MULTIPLE_SPECIES=1    # Aligns multiple species or single species; 1: multiple species, 0: single species
+
+    GRAPHLET_MAX_SIZE=4   # Max number nodes in a graphlet
+
+    SPECIES[0]=fly        # Input file names of each species network
+    SPECIES[1]=worm
+    SPECIES[2]=yeast
+
+    #------------------------default values (Usually no need to change)
+    
+    GRAPHLET_MIN_SIZE=3   # Min number nodes in a graphlet
+    
+    CLUSTER_CUTOFF=0.5    # When clusters overlap larger than or equal to 50%, the smaller cluster is merged to the larger cluster
+    
+    CLUSTER_SIZE_PER_SPECIES_CUTOFF=100   # When a cluster contains no less than 100 proteins in one of the species, 
+                                          # it does not accept any more merging
+
+    #------------------------system configuration
+    
+    CLUSTER_DIR=cluster   # Folder name for storing clustering results
+    ALIGN_DIR=alignment   # Folder that stores alignments
+    TMP_DIR=tmp           # Folder that stores intermediate files
+    
+Compile
+=======
+
+  cd GraphletAlign
+  bash compile.sh
+
+Run
+===
+
+  Run two commands succesively to align and perform clustering on alignments. The sample commands below use the sample configuration files above.
+  
+  # Assume the input files are put in GraphletAlign/example/three/
+  # The input files contain fly.net, worm.net, yeast.net, fly_worm_yeast.blastp, config.align.sh and config.cluster.sh  
+  
+  cd GraphletAlign
+  
+  # 1. Generates graphlet alignments in GraphletAlign/example/three/alignment/
+  #    Write progress to file align.out
+  
+  bash align.sh example/three/config.align.sh &> align.out
+  
+  # 2. Runs clustering on the graphlet alignments and generates protein modules in the file:
+  #    GraphletAlign/example/three/cluster/clusters
+  #    Write progress to file cluster.out
+  
+  bash cluster.sh example/three/config.cluster.sh &> cluster.out
+  
+  You are recommended to try different TOP_HITS and GRAPHLET_MAX_SIZE to generate between 10^7-10^8 alignments.
+  
+  # Calculate total number of alignments
+  
+  wc -l example/three/alignment/
+  
+Output Files
+============
+
+1. Protein modules (clusters): 
+
+  Each line of the file contains a set of aligned protein modules. They are the results of clustering on graphlet alignments. A sample line looks like:
+  
+  FBpp0074373,FBpp0079235,FBpp0080402,FBpp0085688,FBpp0075624,FBpp0083099,FBpp0071820,FBpp0075367	WBGene00001526,WBGene00014077,WBGene00007924	YPL031C,YJL005W,YGR233C	8	-92
+
+  The modules contains the 8 fly proteins, the 3 worm proteins and the 3 yeast proteins. The max graphlet alignment contained in the module has total 8 edges. The best socre of the graphlet alignment contained in the module is Xe-92, X=1..9. The score is calculated by sum of multiplication of pairwise BLASTP expect values of proteins belonging to aligned triple proteins in the graphlet alignment.
+
+2. Graphlet alignments (fly_worm_yeast.3-2-1 and others):
+
+  These files are intermediate results.
+
+  The file fly_worm_yeast.3-2-1 contains sets of aligned graphlets No.3-2-1. Graphlet No.3-2-1 contains 3 nodes and 2 edges. A illustration of the graphlets of size 3-5 can found in data/graphlet.jpg. 
+
+  A sample line of the alignment file looks like:
+
+  0;4525;6076[1, 7078, 9413]-5;19;395;1081;1458;1571;1989;2206;2907;3878;4262;4263;4763;4965;4977;5442;5620;6056;6563;6745;6868[6, 7412, 9384]-5757[42, 8967, 9426]-      2.160E-736
+
+  Node 1 of the graphlet maps to the protein No. 1, 7078 and 9413. The triple is contained in the hit group No. 0, 4525, and 6076
+  Node 2 of the graphlet maps to the protein No. 6, 7412 and 9384. The triple is contained in the 21 hit groups
+  Node 3 of the graphlet maps to the protein No. 42, 8967 and 9426. The triple is contained in the hit group No. 5757
+  The value 2.160E-736 is the sum of multiplication of pairwise BLASTP expect values of proteins in the triple.
+  
+  Note:
+  
+  Proteins are numbered based on the intermediate file fly_worm_yeast.name. Line 1 of the file contains protein No.1. Line 2 contains protein No.2 and so on. 
+  
+  Hit groups are stored in the intermediate file fly_worm_yeast.hits. Line 1 of the file contains group No.0 and so on. A sample hit group looks like:
+  
+  [1, 7078, 9413]
+  
+  It means protein No.1 has BLASTP hits on the protein No. 7078 and 9413. The hits are selected according to the configuration.
+
